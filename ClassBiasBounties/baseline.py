@@ -45,33 +45,120 @@ initial_model = DecisionTreeClassifier(max_depth=1, random_state=0)
 initial_model.fit(train_x, train_y)
 f = bountyHuntWrapper.build_initial_pdl(initial_model, train_x, train_y, validation_x, validation_y)
 
+# %% @Yi This is based on preprocessed dataset, where every column except for AGEP would be 1-hot encoded
+groups = []
+# %% @Yi Generates all one dimensional groups except for AGEP
+def generate_one_dim_groups(train_data):
+    for col in train_data.columns:
+        if col != 'AGEP':
+            def g(x):
+                if (x[col] == 1):
+                    return 1
+                else:
+                    return 0
+            
+            def g_neg(x):
+                return 1 - g(x)
+            
+            groups.append(g)
+            groups.append(g_neg)
+    generate_one_dim_group_age() # generate age groups separately because they don't follow one-hot pattern
+
+# %% @Yi Since AGEP does not use one-hot pattern, we need a separate logic to generate its one-dim groups
+def generate_one_dim_group_age():
+    def g1(x):
+        if ((x['AGEP'] >= 0) and (x['AGEP'] < 30)):
+            return 1
+        else:
+            return 0
+    
+    def g2(x):
+        if ((x['AGEP'] >= 30) and (x['AGEP'] < 60)):
+            return 1
+        else:
+            return 0
+    
+    def g3(x):
+        if ((x['AGEP'] >= 60) and (x['AGEP'] < 100)):
+            return 1
+        else:
+            return 0
+    groups.append(g1)
+    groups.append(g2)
+    groups.append(g3)
+
+generate_one_dim_groups(train_x)
+
+# %% @Yi Finds the N initial groups with the highest FP/FN rate, after applying initial_model to them
+# Returns: a list containing the N initial groups with the highest FP/FN rate
+def find_top_N_initial_g(N, initial_model):
+    records = dict()
+    i = 0
+    for g in groups:
+        indices = validation_x.apply(g, axis=1) == 1
+        validate_x_g = validation_x[indices]
+        validate_y_g = validation_y[indices]
+        predicted = initial_model.predict(validate_x_g)
+        cm = confusion_matrix(validate_y_g, predicted)
+
+        TN = cm[0][0]
+        FN = cm[1][0]
+        TP = cm[1][1]
+        FP = cm[0][1]
+
+        FPR = FP / (FP + TN)
+        FNR = FN / (TP + FN)
+        
+#         print("TP for group " + str(i) + " equals " + str(TP))
+#         print("TN for group " + str(i) + " equals " + str(TN))
+#         print("FP for group " + str(i) + " equals " + str(FP))
+#         print("FN for group " + str(i) + " equals " + str(FN))
+        print("FPR for group " + str(i) + " equals " + str(FPR))
+        print("FNR for group " + str(i) + " equals " + str(FNR))
+        
+        records[i] = max(FPR, FNR) # Both FP and FN would count, use the largest
+        i += 1
+    
+    data_sorted = {k: v for k, v in sorted(records.items(), key=lambda x: x[1])}
+    print(data_sorted)
+    max_N_keys = list(data_sorted.keys())[-N:] # The keys corresponding to the groups with the max N FN/FP rates (these
+    # keys are the index of a group in groups)
+    print(max_N_keys)
+    
+    result_g = []
+    for idx in max_N_keys:
+#         print("appending group " + str(idx))
+        result_g.append(groups[idx])
+    return result_g
+
+result_g = find_top_N_initial_g(4, initial_model)
 
 # %% @Tao
 # group only depends on x
 # African American group
-def g1(x):
-    """
-    Given an x, g should return either 0 or 1.
-    :param x: input vector
-    :return: 0 or 1; 1 if x belongs to group, 0 otherwise
-    """
-    # print(x)
-    # here is how to make a function g that returns 1 for all African American individuals
-    if x['RAC1P'] == 2:
-        return 1
-    else:
-        return 0
+# def g1(x):
+#     """
+#     Given an x, g should return either 0 or 1.
+#     :param x: input vector
+#     :return: 0 or 1; 1 if x belongs to group, 0 otherwise
+#     """
+#     # print(x)
+#     # here is how to make a function g that returns 1 for all African American individuals
+#     if x['RAC1P'] == 2:
+#         return 1
+#     else:
+#         return 0
 
 
-def g1_neg(x):
-    """
-    Given an x, g should return either 0 or 1.
-    :param x: input vector
-    :return: 0 or 1; 1 if x belongs to group, 0 otherwise
-    """
-    # print(x)
-    # here is how to make a function g that returns 1 for all African American individuals
-    return 1 - g1(x)
+# def g1_neg(x):
+#     """
+#     Given an x, g should return either 0 or 1.
+#     :param x: input vector
+#     :return: 0 or 1; 1 if x belongs to group, 0 otherwise
+#     """
+#     # print(x)
+#     # here is how to make a function g that returns 1 for all African American individuals
+#     return 1 - g1(x)
 
 
 # %% skip g examples
