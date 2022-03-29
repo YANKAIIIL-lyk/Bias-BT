@@ -11,7 +11,10 @@ from sklearn.preprocessing import OneHotEncoder
 import numpy as np
 import pandas as pd
 
-
+V = True
+def print(*args,**kwargs):
+    if(V):
+        print(*args,**kwargs)
 
 def _build_model_g(x_conflict, y_h_win, dt_depth):
     print("building g*")
@@ -72,12 +75,12 @@ def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, eps
     # g_star_idx = train_x.apply(g_temp_func, axis=1)
     current_improvement = -1  # pass 1st improvement check
     round = 0
-
+    round += 1
+    print("round %d started" % round)
     h_temp_model = build_model_h(train_x, train_y, g_temp_func, dt_depth=10)
     g_temp_model = build_model_g(f, h_temp_model, train_x, train_y)
     g_temp_func = lambda srs: g_temp_model.predict(srs.values.reshape(1, -1))[0]  # given srs of features x
-    round += 1
-    print("round %d started" % round)
+
 
     while (round < 1 / epsilon):
 
@@ -97,12 +100,12 @@ def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, eps
 
             print("round %d accepted" % round)
             current_improvement = new_improvement
-
+            round += 1
+            print("round %d started" % round)
             h_temp_model = build_model_h(train_x, train_y, g_temp_func, dt_depth=10)
             g_temp_model = build_model_g(f, h_temp_model, train_x, train_y)
             g_temp_func = lambda srs: g_temp_model.predict(srs.values.reshape(1, -1))[0]  # given srs of features x
-            round += 1
-            print("round %d started" % round)
+
 
         else:
             print("round %d failed" % round)
@@ -191,7 +194,7 @@ def _generate_one_dim_group_age(groups):
 
 
 # %% @Yi Finds the N initial groups with the highest FP/FN rate, after applying initial_model to them
-# Returns: a list containing the N initial groups with the highest FP/FN rate
+# Returns: dictionary groupname: F*R "F*R" g()
 def find_top_N_initial_g(N, dataset_x, dataset_y, initial_model, groups):
     records = []
     # i = 0
@@ -201,23 +204,26 @@ def find_top_N_initial_g(N, dataset_x, dataset_y, initial_model, groups):
         validate_y_g = dataset_y[indices]
         predicted = initial_model.predict(validate_x_g)
         cm = confusion_matrix(validate_y_g, predicted)
+        if(len(cm)!=1):
+            TN = cm[0][0]
+            FN = cm[1][0]
+            TP = cm[1][1]
+            FP = cm[0][1]
+            FPR = FP / (FP + TN)
+            FNR = FN / (TP + FN)
+        else: # fix bug when true-only or false-only
+            FPR = 0
+            FNR = 0
 
-        TN = cm[0][0]
-        FN = cm[1][0]
-        TP = cm[1][1]
-        FP = cm[0][1]
-
-        FPR = FP / (FP + TN)
-        FNR = FN / (TP + FN)
 
         #         print("TP for group " + str(i) + " equals " + str(TP))
         #         print("TN for group " + str(i) + " equals " + str(TN))
         #         print("FP for group " + str(i) + " equals " + str(FP))
         #         print("FN for group " + str(i) + " equals " + str(FN))
-        print("FPR for group " + g_name + " equals " + str(FPR))
-        print("FNR for group " + g_name + " equals " + str(FNR))
+        print("FPR for group %s equals %.6f" % ( g_name,  FPR ) )
+        print("FNR for group %s equals %.6f" % (g_name, FNR))
 
-        records.append([g_name, max(FPR, FNR)])
+        records.append([g_name, max(FPR, FNR), "FPR" if FPR>FNR else "FNR"])
         # i += 1
 
     records.sort(key=lambda x: x[1])
@@ -230,7 +236,7 @@ def find_top_N_initial_g(N, dataset_x, dataset_y, initial_model, groups):
     for tup in max_N:
         #         print("appending group " + str(idx))
         # result_g.append(groups[tup[0]])
-        result_g[tup[0]] = (tup[1], groups[tup[0]])
+        result_g[tup[0]] = (tup[1], tup[2], groups[tup[0]]) # groupname: F*R "F*R " g()
     return result_g
 # groups = []
 # def fun_gen():
@@ -399,12 +405,88 @@ def preprocess(train_x, validation_x):
 
 if __name__ == '__main__':
     # test
+    def warn(*args, **kwargs):
+        pass
+
+    import warnings
+
+    warnings.warn = warn
+
     from pprint import pprint
+    TOP_N = 3
     [train_x, train_y, validation_x, validation_y] = bountyHuntData.get_data()
+    train_x, validation_x = preprocess(train_x, validation_x)
 
     initial_model = DecisionTreeClassifier(max_depth=1, random_state=0)
     initial_model.fit(train_x, train_y)
     groups_fcns = dict() # name -> grp_fcn
     generate_one_dim_groups(train_x,groups_fcns)
-    result_g = find_top_N_initial_g(4, train_x, train_y, initial_model, groups_fcns)
+    result_g = find_top_N_initial_g(TOP_N, train_x, train_y, initial_model, groups_fcns)
     pprint(result_g)
+
+
+
+    f = bountyHuntWrapper.build_initial_pdl(initial_model, train_x, train_y, validation_x, validation_y)
+
+    local_maxs = dict()
+    for col,v in result_g.items():
+        name_uuid, g, h = argmax_gh_local(f, train_x, train_y, validation_x, validation_y,v[-1])
+        local_opt_id = "%s-%.3f%s-%s" % (col, v[0],v[1], name_uuid)
+        print("find local max gh from %s" % local_opt_id)
+
+        local_maxs[local_opt_id] = (g, h)
+
+
+    g, h = argmax_gh_global(local_maxs, f, train_x, train_y, validation_x, validation_y)
+
+
+
+    def updater(g, h, group_name="g"):
+        # do not alter this code
+        if bountyHuntWrapper.run_checks(f, validation_x, validation_y, g, h, train_x=train_x, train_y=train_y):
+            print("Running Update")
+            bountyHuntWrapper.run_updates(f, g, h, train_x, train_y, validation_x, validation_y, group_name=group_name)
+
+    updater(g, h.predict, group_name="g")
+    preds = train_x.apply(f.predict, axis=1)
+    # 2. Getting the zero-one loss of a model restricted to a group you have defined.
+    # g = lambda x: 1  # here we define a group that just is all the data, replace as you see fit.
+    bountyHuntWrapper.measure_group_error(f, g, train_x, train_y)
+    # %%
+    # 3. You can view the training data by calling `train_x`. If you want to only view the data for a single group defined by your group function, you can run the following:
+
+    # replace g with whatever your group is
+    indices = train_x.apply(g, axis=1) == 1
+    xs = train_x[indices]
+    ys = train_y[indices]
+    # %%
+    # 4. Inspecting the existing PDL: The PDL is stored as an object, and
+    # tracks its training errors, validation set errors, and the group
+    # functions that are used in lists where the ith element is the group
+    # errors of all groups discovered so far on the ith node in the PDL.
+    # If you are more curious about the implementation, you can look at the
+    # model.py file in the codebase, which doesn't contain anything you can
+    # use to adaptively modify your code. (But lives in the same folder as the
+    # rest of the codebase just to make importing things easier)
+
+    # f is the current model
+    print(f.train_errors)  # group errors on training set.
+    print(f.train_errors[
+              0])  # this is the group error of each group on the initial PDL. The ith element of f.train_errors is the group error of each group on the ith version of the PDL.
+    print(f.test_errors)  # group errors on validation set
+    print(f.predicates)  # all of the group functions that have been appended so far
+    print(f.leaves)  # all of the h functions appended so far
+    print(
+        f.pred_names)  # the names you passed in for each of the group functions, to more easily understand which are which.
+
+    # %%
+    # 5. Looking at the group error of the ith group over each round of updates:
+    # Say you found a group at round 5 and you want to know how its group error
+    # looked at previous or subsequent rounds. To do so, you can pull
+    # `f.train_errors` or `f.test_errors` and look at the ith element of each
+    # list as follows:
+
+    target_group = 0  # this sets the group whose error you want to look at at each round to the initial model. If I wanted to look at the 1st group introduced, would change to a 1, e.g.
+
+    group_errs = [e[target_group] for e in f.train_errors]
+    print(group_errs)
