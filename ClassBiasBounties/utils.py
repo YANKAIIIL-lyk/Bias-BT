@@ -288,8 +288,8 @@ def preprocess(train_x, validation_x):
             return 1
         return 0
 
-    train_x['SEX'] = train_x['SEX'].apply(preprocess_SEX)
-    validation_x['SEX'] = validation_x['SEX'].apply(preprocess_SEX)
+    # train_x['SEX'] = train_x['SEX'].apply(preprocess_SEX)
+    # validation_x['SEX'] = validation_x['SEX'].apply(preprocess_SEX)
 
     # DIS(Disability recode) - binary data. Return 1 if with a disability, otherwise return 0.
     def preprocess_DIS(x):
@@ -297,8 +297,8 @@ def preprocess(train_x, validation_x):
             return 1
         return 0
 
-    train_x['DIS'] = train_x['DIS'].apply(preprocess_DIS)
-    validation_x['DIS'] = validation_x['DIS'].apply(preprocess_DIS)
+    # train_x['DIS'] = train_x['DIS'].apply(preprocess_DIS)
+    # validation_x['DIS'] = validation_x['DIS'].apply(preprocess_DIS)
 
     # ESP(Employment status of parents) - 82% is 0, 8.3% is 1, all the other data ranges from 2 - 8
     # TODO: Need one hot encoding
@@ -307,8 +307,8 @@ def preprocess(train_x, validation_x):
             return 2
         return x
 
-    train_x['ESP'] = train_x['ESP'].apply(preprocess_ESP)
-    validation_x['ESP'] = validation_x['ESP'].apply(preprocess_ESP)
+    # train_x['ESP'] = train_x['ESP'].apply(preprocess_ESP)
+    # validation_x['ESP'] = validation_x['ESP'].apply(preprocess_ESP)
 
     # MIG(Mobility status) - 88.5% is 1, 9.9% is 3. Since the other data only makes up to 1% of whole data set,
     # merge it into category 3. Then this feature becomes a binary feature.
@@ -318,8 +318,8 @@ def preprocess(train_x, validation_x):
             return 1
         return 0
 
-    train_x['MIG'] = train_x['MIG'].apply(preprocess_MIG)
-    validation_x['MIG'] = validation_x['MIG'].apply(preprocess_MIG)
+    # train_x['MIG'] = train_x['MIG'].apply(preprocess_MIG)
+    # validation_x['MIG'] = validation_x['MIG'].apply(preprocess_MIG)
 
     # CIT(Citizenship status) - 78% data is 1, 12.2% data is 4. Other data will be merged.
     # return 1 -> 0, 4 -> 1, others -> 2
@@ -331,8 +331,8 @@ def preprocess(train_x, validation_x):
             return 1
         return 2
 
-    train_x['CIT'] = train_x['CIT'].apply(preprocess_CIT)
-    validation_x['CIT'] = validation_x['CIT'].apply(preprocess_CIT)
+    # train_x['CIT'] = train_x['CIT'].apply(preprocess_CIT)
+    # validation_x['CIT'] = validation_x['CIT'].apply(preprocess_CIT)
 
     # MIL(Military service) - 76.7% data is 4, 17.8% data is 0. Other data will be merged.
     # return 0 -> 0, 4 -> 1, others -> 2
@@ -344,8 +344,8 @@ def preprocess(train_x, validation_x):
             return 1
         return 2
 
-    train_x['MIL'] = train_x['MIL'].apply(preprocess_MIL)
-    validation_x['MIL'] = validation_x['MIL'].apply(preprocess_MIL)
+    # train_x['MIL'] = train_x['MIL'].apply(preprocess_MIL)
+    # validation_x['MIL'] = validation_x['MIL'].apply(preprocess_MIL)
 
     # ANC(Ancestry recode) - 1.6% data is 3, will be merged into 4
     # TODO: Need one hot encoding
@@ -354,8 +354,8 @@ def preprocess(train_x, validation_x):
             return 4
         return x
 
-    train_x['ANC'] = train_x['ANC'].apply(preprocess_ANC)
-    validation_x['ANC'] = validation_x['ANC'].apply(preprocess_ANC)
+    # train_x['ANC'] = train_x['ANC'].apply(preprocess_ANC)
+    # validation_x['ANC'] = validation_x['ANC'].apply(preprocess_ANC)
 
     # NATIVITY(Nativity) - binary data. Return 1 if Native
     def preprocess_NATIVITY(x):
@@ -363,8 +363,8 @@ def preprocess(train_x, validation_x):
             return 0
         return 1
 
-    train_x['NATIVITY'] = train_x['NATIVITY'].apply(preprocess_NATIVITY)
-    validation_x['NATIVITY'] = validation_x['NATIVITY'].apply(preprocess_NATIVITY)
+    # train_x['NATIVITY'] = train_x['NATIVITY'].apply(preprocess_NATIVITY)
+    # validation_x['NATIVITY'] = validation_x['NATIVITY'].apply(preprocess_NATIVITY)
 
     # RELP(Relationship) - 38.3% is 0, 24.5% is 2, 18.5% is 1, all the other values are below 3.5%. Merge them into
     # category 3
@@ -374,8 +374,8 @@ def preprocess(train_x, validation_x):
             return 3
         return x
 
-    train_x['RELP'] = train_x['RELP'].apply(preprocess_RELP)
-    validation_x['RELP'] = validation_x['RELP'].apply(preprocess_RELP)
+    # train_x['RELP'] = train_x['RELP'].apply(preprocess_RELP)
+    # validation_x['RELP'] = validation_x['RELP'].apply(preprocess_RELP)
 
     # DEAR, DEYE - binary data. Return 1 if Yes(1), otherwise 0.
     def preprocess_DEAR(x):
@@ -386,10 +386,10 @@ def preprocess(train_x, validation_x):
     def preprocess_DEYE(x):
         return preprocess_DEAR(x)
 
-    train_x['DEAR'] = train_x['DEAR'].apply(preprocess_DEAR)
-    train_x['DEYE'] = train_x['DEYE'].apply(preprocess_DEYE)
-    validation_x['DEAR'] = validation_x['DEAR'].apply(preprocess_DEAR)
-    validation_x['DEYE'] = validation_x['DEYE'].apply(preprocess_DEYE)
+    # train_x['DEAR'] = train_x['DEAR'].apply(preprocess_DEAR)
+    # train_x['DEYE'] = train_x['DEYE'].apply(preprocess_DEYE)
+    # validation_x['DEAR'] = validation_x['DEAR'].apply(preprocess_DEAR)
+    # validation_x['DEYE'] = validation_x['DEYE'].apply(preprocess_DEYE)
 
     # DREM(Cognitive difficulty) - No preprocess needed
     # TODO: Need one hot encoding
@@ -402,15 +402,16 @@ def preprocess(train_x, validation_x):
             return 0
         return x
 
-    train_x['RAC1P'] = train_x['RAC1P'].apply(preprocess_RAC1P)
-    validation_x['RAC1P'] = validation_x['RAC1P'].apply(preprocess_RAC1P)
+    # train_x['RAC1P'] = train_x['RAC1P'].apply(preprocess_RAC1P)
+    # validation_x['RAC1P'] = validation_x['RAC1P'].apply(preprocess_RAC1P)
 
     # make sure all the data are int
     train_x = pd.DataFrame(train_x, dtype=int)
     validation_x = pd.DataFrame(validation_x, dtype=int)
 
     # one-hot encode the training
-    features_to_encode = ['MAR', 'ESP', 'CIT', 'MIL', 'ANC', 'RELP', 'DREM', 'RAC1P']
+    # features_to_encode = ['MAR', 'ESP', 'CIT', 'MIL', 'ANC', 'RELP', 'DREM', 'RAC1P']
+    features_to_encode = ['MAR', 'SEX', 'DIS', 'ESP', 'MIG', 'CIT', 'MIL', 'ANC', 'NATIVITY', 'RELP', 'DREM', 'RAC1P']
     encoder = OneHotEncoder(handle_unknown='ignore')
     train_x_encoded = pd.DataFrame(encoder.fit_transform(train_x[features_to_encode]).toarray(), \
                                    columns=encoder.get_feature_names_out(features_to_encode))
@@ -429,7 +430,7 @@ def preprocess(train_x, validation_x):
     return train_x, validation_x
 
 
-def eval(current_pdl):
+def evaluation(current_pdl):
     vprint("per-group training errors of lastest version PDL:")
     vprint(current_pdl.train_errors[
                -1])  # this is the group error of each group on the initial PDL.
@@ -471,10 +472,10 @@ if __name__ == '__main__':
 
     warnings.warn = warn
 
-    TOP_N = 3
+    TOP_N = 1
     epsilon = 0.001 #  0.001
     [train_x, train_y, validation_x, validation_y] = bountyHuntData.get_data()
-    train_x, validation_x = preprocess(train_x, validation_x)
+    # train_x, validation_x = preprocess(train_x, validation_x)
 
     initial_model = DecisionTreeClassifier(max_depth=1, random_state=0)
     initial_model.fit(train_x, train_y)
@@ -486,8 +487,8 @@ if __name__ == '__main__':
     retries_nr = 0
     updates_count = 0
     for i in range(int(1 / epsilon)):
-        print("%d-th iteration, finding %d-th gh pair" % (i, updates_count + 1))
-        result_g = find_top_N_initial_g(TOP_N, train_x, train_y, f_predict_xN, groups_fcns,M=TOP_N)
+        print("%d-th iteration, finding %d-th gh pair" % (i+1, updates_count + 1))
+        result_g = find_top_N_initial_g(TOP_N, train_x, train_y, f_predict_xN, groups_fcns,M=10)
         print("initial groups:")
         print(result_g)
         local_maxs = dict()
@@ -519,7 +520,6 @@ if __name__ == '__main__':
                 vprint("Running Update %d" % updates_count)
                 bountyHuntWrapper.run_updates(f, g, h.predict, train_x, train_y, validation_x, validation_y,
                                               group_name=global_opt_id)
-                eval(f)
 
             retries_nr = 0
 
@@ -528,3 +528,5 @@ if __name__ == '__main__':
             break
         else:
             retries_nr += 1
+
+    evaluation(f)
