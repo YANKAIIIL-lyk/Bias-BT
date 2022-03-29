@@ -7,17 +7,27 @@ from dontlook import bountyHuntWrapper
 import uuid
 from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import OneHotEncoder
-
+from sklearn import metrics
+import random
 import numpy as np
 import pandas as pd
 
-V = True
-def print(*args,**kwargs):
-    if(V):
-        print(*args,**kwargs)
+V = 1  #
+
+
+# 1,
+def vprint(*args, **kwargs):
+    if (V >= 1):
+        print(*args, **kwargs)
+
+
+def vvprint(*args, **kwargs):
+    if (V >= 2):
+        print(*args, **kwargs)
+
 
 def _build_model_g(x_conflict, y_h_win, dt_depth):
-    print("building g*")
+    vvprint("building g*")
     # learn the indices first, since this is an inefficient operation
     # indices = x.apply(group_function, axis=1) == 1
 
@@ -27,12 +37,12 @@ def _build_model_g(x_conflict, y_h_win, dt_depth):
 
     dt = DecisionTreeClassifier(max_depth=dt_depth, random_state=0)  # setting random state for replicability
     dt.fit(training_xs, training_ys)
-    print("finished building g*")
+    vvprint("finished building g*")
     return dt
 
 
 def build_model_h(x, y, group_function, dt_depth):
-    print("building h*")
+    vvprint("building h*")
     # learn the indices first, since this is an inefficient operation
     indices = x.apply(group_function, axis=1) == 1
 
@@ -42,7 +52,7 @@ def build_model_h(x, y, group_function, dt_depth):
 
     dt = DecisionTreeClassifier(max_depth=dt_depth, random_state=0)  # setting random state for replicability
     dt.fit(training_xs, training_ys)
-    print("finished building h*")
+    vvprint("finished building h*")
     return dt
 
 
@@ -62,25 +72,22 @@ def build_model_g(f, h_temp_model, train_x, train_y):
     return g_temp_model
 
 
-
-
 # %% impementation of 4.2.2 Algorithm 6 @Tao
 # return (g*, h*)
-def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, epsilon=0.001):
+def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, name_pfx, epsilon=0.001):
     # f is the current PDL
 
     g_temp_func = init_g
     h_temp_model = None
 
     # g_star_idx = train_x.apply(g_temp_func, axis=1)
-    current_improvement = -1  # pass 1st improvement check
+    current_improvement = 0  # pass 1st improvement check
     round = 0
     round += 1
-    print("round %d started" % round)
+    vprint("round %d started" % round)
     h_temp_model = build_model_h(train_x, train_y, g_temp_func, dt_depth=10)
     g_temp_model = build_model_g(f, h_temp_model, train_x, train_y)
     g_temp_func = lambda srs: g_temp_model.predict(srs.values.reshape(1, -1))[0]  # given srs of features x
-
 
     while (round < 1 / epsilon):
 
@@ -92,28 +99,31 @@ def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, eps
         new_improvement = g_weight * (
                 bountyHuntWrapper.measure_group_error(f, g_temp_func, validation_x, validation_y)
                 - bountyHuntWrapper.measure_group_error(h_temp_pdl, g_temp_func, validation_x, validation_y))
-        print("weighted error rate %.3f -> %.3f" % (current_improvement, new_improvement))
-        print("improvement on weighted error rate %.4f" % (new_improvement - current_improvement))
+        vprint(
+            "change of weighted error rate reduction: %.4f -> %.4f, error rate reduce by additional %.4f(hopefully positive)" % (
+                current_improvement, new_improvement, (new_improvement - current_improvement)))
+        # vprint("Reduction on weighted error rate %.4f" % (new_improvement - current_improvement))
 
         # validate using validation dataset
         if new_improvement > current_improvement + epsilon:
 
-            print("round %d accepted" % round)
+            vprint("round %d accepted" % round)
             current_improvement = new_improvement
             round += 1
-            print("round %d started" % round)
+            vprint("round %d started" % round)
             h_temp_model = build_model_h(train_x, train_y, g_temp_func, dt_depth=10)
             g_temp_model = build_model_g(f, h_temp_model, train_x, train_y)
             g_temp_func = lambda srs: g_temp_model.predict(srs.values.reshape(1, -1))[0]  # given srs of features x
 
 
         else:
-            print("round %d failed" % round)
+            vprint("round %d failed" % round)
 
             break
-
-    return str(uuid.uuid4()), g_temp_func, h_temp_model
-
+    if round != 1:
+        return name_pfx+"-"+str(uuid.uuid4()), g_temp_func, h_temp_model
+    else:
+        return None, None, None
 
 
 # %% find max gh pairs among many local max gh pairs @Tao
@@ -137,8 +147,8 @@ def argmax_gh_global(gh_pairs, f, train_x, train_y, validation_x, validation_y):
         if new_improvement > max_delta:
             max_name = k
             max_delta = new_improvement
-    print("argmax gh pair name %s,\n maximum improvement over all gh pairs: %.3f " % (max_name, max_delta))
-    return gh_pairs[max_name]
+    vprint("argmax gh pair name %s,\n maximum improvement over all gh pairs: %.3f " % (max_name, max_delta))
+    return max_name, gh_pairs[max_name]
 
 
 # %% @Yi This is based on preprocessed dataset, where every column except for AGEP would be 1-hot encoded
@@ -153,12 +163,14 @@ def g_gen(col):
             return 1
         else:
             return 0
+
     return g
 
-def generate_one_dim_groups(train_data,groups):
+
+def generate_one_dim_groups(train_data, groups):
     for col in train_data.columns:
         if col != 'AGEP':
-            g = g_gen( col)
+            g = g_gen(col)
 
             # def g_neg(x):
             #     return 1 - g(x)
@@ -168,22 +180,29 @@ def generate_one_dim_groups(train_data,groups):
     _generate_one_dim_group_age(groups)  # generate age groups separately because they don't follow one-hot pattern
     return groups
 
+
 # %% @Yi Since AGEP does not use one-hot pattern, we need a separate logic to generate its one-dim groups
 def _generate_one_dim_group_age(groups):
+    def g0(x):
+        if ((x['AGEP'] >= 0) and (x['AGEP'] < 13)): # child
+            return 1
+        else:
+            return 0
+
     def g1(x):
-        if ((x['AGEP'] >= 0) and (x['AGEP'] < 30)):
+        if ((x['AGEP'] >= 13) and (x['AGEP'] < 20)): # teen
             return 1
         else:
             return 0
 
     def g2(x):
-        if ((x['AGEP'] >= 30) and (x['AGEP'] < 60)):
+        if ((x['AGEP'] >= 20) and (x['AGEP'] < 60)): # adult
             return 1
         else:
             return 0
 
     def g3(x):
-        if ((x['AGEP'] >= 60) and (x['AGEP'] < 100)):
+        if ((x['AGEP'] >= 60) and (x['AGEP'] < 100)): # Senior
             return 1
         else:
             return 0
@@ -195,49 +214,53 @@ def _generate_one_dim_group_age(groups):
 
 # %% @Yi Finds the N initial groups with the highest FP/FN rate, after applying initial_model to them
 # Returns: dictionary groupname: F*R "F*R" g()
-def find_top_N_initial_g(N, dataset_x, dataset_y, initial_model, groups):
+def find_top_N_initial_g(N, dataset_x, dataset_y, predict_func, groups, M=10):
     records = []
     # i = 0
     for g_name, g in groups.items():
         indices = dataset_x.apply(g, axis=1) == 1
-        validate_x_g = dataset_x[indices]
-        validate_y_g = dataset_y[indices]
-        predicted = initial_model.predict(validate_x_g)
-        cm = confusion_matrix(validate_y_g, predicted)
-        if(len(cm)!=1):
+        x_g = dataset_x[indices]
+        y_g = dataset_y[indices]
+        predicted = predict_func(x_g)
+        cm = confusion_matrix(y_g, predicted)
+        if (len(cm) != 1):
             TN = cm[0][0]
             FN = cm[1][0]
             TP = cm[1][1]
             FP = cm[0][1]
             FPR = FP / (FP + TN)
             FNR = FN / (TP + FN)
-        else: # fix bug when true-only or false-only
+        else:  # fix bug when true-only or false-only
             FPR = 0
             FNR = 0
 
+        #         vprint("TP for group " + str(i) + " equals " + str(TP))
+        #         vprint("TN for group " + str(i) + " equals " + str(TN))
+        #         vprint("FP for group " + str(i) + " equals " + str(FP))
+        #         vprint("FN for group " + str(i) + " equals " + str(FN))
+        vvprint("FPR for group %s equals %.6f" % (g_name, FPR))
+        vvprint("FNR for group %s equals %.6f" % (g_name, FNR))
 
-        #         print("TP for group " + str(i) + " equals " + str(TP))
-        #         print("TN for group " + str(i) + " equals " + str(TN))
-        #         print("FP for group " + str(i) + " equals " + str(FP))
-        #         print("FN for group " + str(i) + " equals " + str(FN))
-        print("FPR for group %s equals %.6f" % ( g_name,  FPR ) )
-        print("FNR for group %s equals %.6f" % (g_name, FNR))
-
-        records.append([g_name, max(FPR, FNR), "FPR" if FPR>FNR else "FNR"])
+        records.append([g_name, max(FPR, FNR), "FPR" if FPR > FNR else "FNR"])
         # i += 1
 
     records.sort(key=lambda x: x[1])
-    print(records)
-    max_N = records[-N:]  # The keys corresponding to the groups with the max N FN/FP rates (these
+    vprint(records)
+    max_M = records[-M:].copy()  # The keys corresponding to the groups with the max N FN/FP rates (these
+    random.shuffle(max_M)
+    max_N = max_M[:N]
+
     # keys are the index of a group in groups)
-    # print(max_N)
+    # vprint(max_N)
 
     result_g = dict()
     for tup in max_N:
-        #         print("appending group " + str(idx))
+        #         vprint("appending group " + str(idx))
         # result_g.append(groups[tup[0]])
-        result_g[tup[0]] = (tup[1], tup[2], groups[tup[0]]) # groupname: F*R "F*R " g()
+        result_g[tup[0]] = (tup[1], tup[2], groups[tup[0]])  # groupname: F*R "F*R " g()
     return result_g
+
+
 # groups = []
 # def fun_gen():
 #     ll = ["Tao", "Luo", "Chen", "Zhao"]
@@ -252,6 +275,8 @@ def find_top_N_initial_g(N, dataset_x, dataset_y, initial_model, groups):
 This method will preprocess the training set and validation set. Drop all the outliers first. For the categorical
 features, do one-hot encoding
 '''
+
+
 def preprocess(train_x, validation_x):
     # AGEP(age) - Numerical data, no preprocessing is needed
     # SCHL(Educational attainment) - Categorical data, but it's okay to preserve the natural order here
@@ -403,90 +428,103 @@ def preprocess(train_x, validation_x):
 
     return train_x, validation_x
 
-if __name__ == '__main__':
-    # test
-    def warn(*args, **kwargs):
-        pass
 
-    import warnings
-
-    warnings.warn = warn
-
-    from pprint import pprint
-    TOP_N = 3
-    [train_x, train_y, validation_x, validation_y] = bountyHuntData.get_data()
-    train_x, validation_x = preprocess(train_x, validation_x)
-
-    initial_model = DecisionTreeClassifier(max_depth=1, random_state=0)
-    initial_model.fit(train_x, train_y)
-    groups_fcns = dict() # name -> grp_fcn
-    generate_one_dim_groups(train_x,groups_fcns)
-    result_g = find_top_N_initial_g(TOP_N, train_x, train_y, initial_model, groups_fcns)
-    pprint(result_g)
-
-
-
-    f = bountyHuntWrapper.build_initial_pdl(initial_model, train_x, train_y, validation_x, validation_y)
-
-    local_maxs = dict()
-    for col,v in result_g.items():
-        name_uuid, g, h = argmax_gh_local(f, train_x, train_y, validation_x, validation_y,v[-1])
-        local_opt_id = "%s-%.3f%s-%s" % (col, v[0],v[1], name_uuid)
-        print("find local max gh from %s" % local_opt_id)
-
-        local_maxs[local_opt_id] = (g, h)
-
-
-    g, h = argmax_gh_global(local_maxs, f, train_x, train_y, validation_x, validation_y)
-
-
-
-    def updater(g, h, group_name="g"):
-        # do not alter this code
-        if bountyHuntWrapper.run_checks(f, validation_x, validation_y, g, h, train_x=train_x, train_y=train_y):
-            print("Running Update")
-            bountyHuntWrapper.run_updates(f, g, h, train_x, train_y, validation_x, validation_y, group_name=group_name)
-
-    updater(g, h.predict, group_name="g")
-    preds = train_x.apply(f.predict, axis=1)
-    # 2. Getting the zero-one loss of a model restricted to a group you have defined.
-    # g = lambda x: 1  # here we define a group that just is all the data, replace as you see fit.
-    bountyHuntWrapper.measure_group_error(f, g, train_x, train_y)
-    # %%
-    # 3. You can view the training data by calling `train_x`. If you want to only view the data for a single group defined by your group function, you can run the following:
-
-    # replace g with whatever your group is
-    indices = train_x.apply(g, axis=1) == 1
-    xs = train_x[indices]
-    ys = train_y[indices]
-    # %%
-    # 4. Inspecting the existing PDL: The PDL is stored as an object, and
-    # tracks its training errors, validation set errors, and the group
-    # functions that are used in lists where the ith element is the group
-    # errors of all groups discovered so far on the ith node in the PDL.
-    # If you are more curious about the implementation, you can look at the
-    # model.py file in the codebase, which doesn't contain anything you can
-    # use to adaptively modify your code. (But lives in the same folder as the
-    # rest of the codebase just to make importing things easier)
-
-    # f is the current model
-    print(f.train_errors)  # group errors on training set.
-    print(f.train_errors[
-              0])  # this is the group error of each group on the initial PDL. The ith element of f.train_errors is the group error of each group on the ith version of the PDL.
-    print(f.test_errors)  # group errors on validation set
-    print(f.predicates)  # all of the group functions that have been appended so far
-    print(f.leaves)  # all of the h functions appended so far
-    print(
-        f.pred_names)  # the names you passed in for each of the group functions, to more easily understand which are which.
-
+def eval(current_pdl):
+    vprint("per-group training errors of lastest version PDL:")
+    vprint(current_pdl.train_errors[
+               -1])  # this is the group error of each group on the initial PDL.
+    # The ith element of f.train_errors is the group error of each group on
+    # the ith version of the PDL.
+    vprint("per-group testing errors of lastest version PDL:")
+    vprint(current_pdl.test_errors[-1])  # group errors on validation set
+    # vprint(f.predicates)  # all of the group functions that have been appended so far
+    # vprint(f.leaves)  # all of the h functions appended so far
+    vprint(
+        current_pdl.pred_names)  # the names you passed in for each of the group functions, to more easily understand which are which.
     # %%
     # 5. Looking at the group error of the ith group over each round of updates:
     # Say you found a group at round 5 and you want to know how its group error
     # looked at previous or subsequent rounds. To do so, you can pull
     # `f.train_errors` or `f.test_errors` and look at the ith element of each
     # list as follows:
+    target_group = -1  # this sets the group whose error you want to look at at each round to the initial model. If I wanted to look at the 1st group introduced, would change to a 1, e.g.
+    vprint("latest group's training errors on all preivous PDLs:")
+    vprint([e[-1] for e in current_pdl.train_errors])
+    vprint("latest group's testing errors on all preivous PDLs:")
+    vprint([e[-1] for e in current_pdl.test_errors])
+    g_all = lambda x: 1  # here we define a group that just is all the data, replace as you see fit.
+    bountyHuntWrapper.measure_group_error(f, g_all, train_x, train_y)
 
-    target_group = 0  # this sets the group whose error you want to look at at each round to the initial model. If I wanted to look at the 1st group introduced, would change to a 1, e.g.
+    pred_ys = validation_x.apply(f.predict, axis=1).to_numpy()
+    errors = metrics.zero_one_loss(validation_y, pred_ys)
+    vprint("latest PDL's overall testing  errors %.10f" % errors)
 
-    group_errs = [e[target_group] for e in f.train_errors]
-    print(group_errs)
+
+if __name__ == '__main__':
+    # test
+    def warn(*args, **kwargs):
+        pass
+
+
+    import warnings
+    # from multiprocessing.pool import ThreadPool
+
+    warnings.warn = warn
+
+    TOP_N = 3
+    epsilon = 0.001 #  0.001
+    [train_x, train_y, validation_x, validation_y] = bountyHuntData.get_data()
+    train_x, validation_x = preprocess(train_x, validation_x)
+
+    initial_model = DecisionTreeClassifier(max_depth=1, random_state=0)
+    initial_model.fit(train_x, train_y)
+    groups_fcns = dict()  # name -> grp_fcn
+    generate_one_dim_groups(train_x, groups_fcns)
+
+    f = bountyHuntWrapper.build_initial_pdl(initial_model, train_x, train_y, validation_x, validation_y)
+    f_predict_xN = lambda xN: xN.apply(f.predict, axis=1)
+    retries_nr = 0
+    updates_count = 0
+    for i in range(int(1 / epsilon)):
+        print("%d-th iteration, finding %d-th gh pair" % (i, updates_count + 1))
+        result_g = find_top_N_initial_g(TOP_N, train_x, train_y, f_predict_xN, groups_fcns,M=TOP_N)
+        print("initial groups:")
+        print(result_g)
+        local_maxs = dict()
+        process_list = []
+
+        # with ThreadPool(5) as  pool:
+        #     args_list_all  = [[f, train_x, train_y, validation_x, validation_y, v[-1], "%s-%.4f%s" % (col, v[0], v[1]), epsilon] for col, v in result_g.items()]
+        #     for name, g, h in pool.map(argmax_gh_local, args_list_all):
+        #
+        #         if (name is not None):
+        #             vprint("find local max gh from %s" % name)
+        #             local_maxs[name] = (g, h)
+
+        for col, v in result_g.items():
+            name, g, h  = argmax_gh_local(f, train_x, train_y, validation_x, validation_y, v[-1], "%s-%.4f%s" % (col, v[0], v[1]), epsilon)
+            if (name is not None):
+                vprint("find local max gh from %s" % name)
+                local_maxs[name] = (g, h)
+
+        if (len(local_maxs) != 0):
+            global_opt_id, gh = argmax_gh_global(local_maxs, f, train_x, train_y, validation_x, validation_y)
+            gh = g, h
+
+            # def updater(g, h, group_name=global_opt_id):
+            # do not alter this code
+            if bountyHuntWrapper.run_checks(f, validation_x, validation_y, g, h.predict, train_x=train_x,
+                                            train_y=train_y):
+                updates_count += 1
+                vprint("Running Update %d" % updates_count)
+                bountyHuntWrapper.run_updates(f, g, h.predict, train_x, train_y, validation_x, validation_y,
+                                              group_name=global_opt_id)
+                eval(f)
+
+            retries_nr = 0
+
+        elif retries_nr == 2:
+            print("Tries two more times, no luck, terminate PDL")
+            break
+        else:
+            retries_nr += 1
