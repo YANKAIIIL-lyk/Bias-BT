@@ -1,7 +1,7 @@
 # %%
 import sys
 from sklearn.tree import DecisionTreeClassifier
-
+from sklearn.metrics import confusion_matrix
 sys.path.append('dontlook')
 from dontlook import bountyHuntData
 from dontlook import bountyHuntWrapper
@@ -39,11 +39,6 @@ columns = [
     'SEX',  # 1, 2 bin
     'RAC1P',  # 1-9 cate
 ]
-
-# %%
-initial_model = DecisionTreeClassifier(max_depth=1, random_state=0)
-initial_model.fit(train_x, train_y)
-f = bountyHuntWrapper.build_initial_pdl(initial_model, train_x, train_y, validation_x, validation_y)
 
 # %% @Yi This is based on preprocessed dataset, where every column except for AGEP would be 1-hot encoded
 groups = []
@@ -92,7 +87,7 @@ generate_one_dim_groups(train_x)
 # %% @Yi Finds the N initial groups with the highest FP/FN rate, after applying initial_model to them
 # Returns: a list containing the N initial groups with the highest FP/FN rate
 def find_top_N_initial_g(N, initial_model):
-    records = dict()
+    records = []
     i = 0
     for g in groups:
         indices = validation_x.apply(g, axis=1) == 1
@@ -116,22 +111,22 @@ def find_top_N_initial_g(N, initial_model):
         print("FPR for group " + str(i) + " equals " + str(FPR))
         print("FNR for group " + str(i) + " equals " + str(FNR))
         
-        records[i] = max(FPR, FNR) # Both FP and FN would count, use the largest
+        records.append([i, max(FPR, FNR)])
         i += 1
     
-    data_sorted = {k: v for k, v in sorted(records.items(), key=lambda x: x[1])}
-    print(data_sorted)
-    max_N_keys = list(data_sorted.keys())[-N:] # The keys corresponding to the groups with the max N FN/FP rates (these
+    records.sort(key = lambda x: x[1])
+    print(records)
+    max_N = records[-N:] # The keys corresponding to the groups with the max N FN/FP rates (these
     # keys are the index of a group in groups)
-    print(max_N_keys)
+    print(max_N)
     
     result_g = []
-    for idx in max_N_keys:
+    for tup in max_N:
 #         print("appending group " + str(idx))
-        result_g.append(groups[idx])
+        result_g.append(groups[tup[0]])
     return result_g
 
-result_g = find_top_N_initial_g(4, initial_model)
+# result_g = find_top_N_initial_g(4, initial_model)
 
 # %% @Tao
 # group only depends on x
