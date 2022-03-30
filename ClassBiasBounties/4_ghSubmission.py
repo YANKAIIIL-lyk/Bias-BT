@@ -11,6 +11,19 @@ import random
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from utils import *
+import warnings
+warnings.filterwarnings('ignore')
+
+def simple_updater(f, g, group_name="g"):
+    # if you want to change how h is trained, you can edit the below line.
+    h = bountyHuntWrapper.build_model(train_x, train_y, g, dt_depth=10)
+    # do not change anything beyond this point.
+    if bountyHuntWrapper.run_checks(f, validation_x, validation_y, g, h, train_x=train_x, train_y=train_y):
+        print("Running Update")
+        bountyHuntWrapper.run_updates(f, g, h, train_x, train_y, validation_x, validation_y, group_name=group_name)
+        return True
+    return False
 
 
 acs_task = 'employment'
@@ -64,7 +77,7 @@ def visitEachList(df):
         g = aggr(column)
         ret = simple_updater(f, g, "group" + str(count))
         if ret:
-            evaluation(f, train_x, train_y)
+            evaluation(f, train_x, train_y,validation_x,validation_y)
 visitEachList(train_x)
 
 # Implemented algorithm 6 in the given paper to find g
@@ -83,17 +96,22 @@ for col, v in result_g.items():
     print("%d-th iteration, finding %d-th gh pair" % (itr_count + 1, updates_count + 1))
     itr_count += 1
     init_g_err = "%s-%.4f%s" % (col, v[0], v[1])
-    vprint("init_g_err %s" % init_g_err)
+    print("init_g_err %s" % init_g_err)
     name, g, h = argmax_gh_local(f, train_x, train_y, validation_x, validation_y, v[-1], init_g_err, epsilon)
     if (name is not None):
-        vprint("find local max gh from %s" % name)
+        print("find local max gh from %s" % name)
         # local_maxs[name] = (g, h)
         if bountyHuntWrapper.run_checks(f, validation_x, validation_y, g, h.predict, train_x=train_x,
                                         train_y=train_y):
             updates_count += 1
-            vprint("Running Update %d" % updates_count)
+            print("Running Update %d" % updates_count)
             bountyHuntWrapper.run_updates(f, g, h.predict, train_x, train_y, validation_x, validation_y,
                                           group_name=name)
 
 # Evalutate the final PDL. The final overall testing error is around 0.1716
-evaluation(f, train_x, train_y)
+evaluation(f, train_x, train_y,validation_x,validation_y)
+
+
+import dill as pickle # you will probably need to install dill, which you do w pip install dill in your command line
+with open('final_pdl.pkl', 'wb') as pickle_file:
+    pickle.dump(f, pickle_file)

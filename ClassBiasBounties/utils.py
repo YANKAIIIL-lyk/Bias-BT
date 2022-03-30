@@ -21,7 +21,7 @@ V = 1  #
 
 
 def _build_model_g(x_conflict, y_h_win, dt_depth):
-    vvprint("building g*")
+    # print("building g*")
     # learn the indices first, since this is an inefficient operation
     # indices = x.apply(group_function, axis=1) == 1
 
@@ -31,12 +31,12 @@ def _build_model_g(x_conflict, y_h_win, dt_depth):
 
     dt = DecisionTreeClassifier(max_depth=dt_depth, random_state=0)  # setting random state for replicability
     dt.fit(training_xs, training_ys)
-    vvprint("finished building g*")
+    # print("finished building g*")
     return dt
 
 
 def build_model_h(x, y, group_function, dt_depth):
-    vvprint("building h*")
+    # print("building h*")
     # learn the indices first, since this is an inefficient operation
     indices = x.apply(group_function, axis=1) == 1
 
@@ -46,7 +46,7 @@ def build_model_h(x, y, group_function, dt_depth):
 
     dt = DecisionTreeClassifier(max_depth=dt_depth, random_state=0)  # setting random state for replicability
     dt.fit(training_xs, training_ys)
-    vvprint("finished building h*")
+    # print("finished building h*")
     return dt
 
 
@@ -80,7 +80,7 @@ def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, nam
     current_improvement = 0  # pass 1st improvement check
     round = 0
     round += 1
-    vprint("round %d started" % round)
+    print("round %d started" % round)
     h_temp_model = build_model_h(train_x, train_y, g_temp_func, dt_depth=10)
 
     g_temp_model = build_model_g(f, h_temp_model, train_x, train_y)
@@ -96,25 +96,25 @@ def argmax_gh_local(f, train_x, train_y, validation_x, validation_y, init_g, nam
         new_improvement = g_weight * (
                 bountyHuntWrapper.measure_group_error(f, g_temp_func, validation_x, validation_y)
                 - bountyHuntWrapper.measure_group_error(h_temp_pdl, g_temp_func, validation_x, validation_y))
-        vprint(
+        print(
             "change of weighted error rate reduction: %.4f -> %.4f, error rate reduce by additional %.4f(hopefully positive)" % (
                 current_improvement, new_improvement, (new_improvement - current_improvement)))
-        # vprint("Reduction on weighted error rate %.4f" % (new_improvement - current_improvement))
+        # print("Reduction on weighted error rate %.4f" % (new_improvement - current_improvement))
 
         # validate using validation dataset
         if new_improvement > current_improvement + epsilon:
 
-            vprint("round %d accepted" % round)
+            print("round %d accepted" % round)
             current_improvement = new_improvement
             round += 1
-            vprint("round %d started" % round)
+            print("round %d started" % round)
             h_temp_model = build_model_h(train_x, train_y, g_temp_func, dt_depth=10)
             g_temp_model = build_model_g(f, h_temp_model, train_x, train_y)
             g_temp_func = lambda srs: g_temp_model.predict(srs.values.reshape(1, -1))[0]  # given srs of features x
 
 
         else:
-            vprint("round %d failed" % round)
+            print("round %d failed" % round)
 
             break
     if round != 1:
@@ -144,7 +144,7 @@ def argmax_gh_global(gh_pairs, f, train_x, train_y, validation_x, validation_y):
         if new_improvement > max_delta:
             max_name = k
             max_delta = new_improvement
-    vprint("argmax gh pair name %s,\n maximum improvement over all gh pairs: %.3f " % (max_name, max_delta))
+    print("argmax gh pair name %s,\n maximum improvement over all gh pairs: %.3f " % (max_name, max_delta))
     return max_name, gh_pairs[max_name]
 
 
@@ -232,9 +232,6 @@ def find_top_N_initial_g(N, dataset_x, dataset_y, predict_func, groups, M=10, or
                 FPR = 0
                 FNR = 0
 
-            vvprint("FPR for group %s equals %.6f" % (g_name, FPR))
-            vvprint("FNR for group %s equals %.6f" % (g_name, FNR))
-
             records.append([g_name, max(FPR, FNR), "FPR" if FPR > FNR else "FNR"])
             # i += 1
         else:
@@ -252,17 +249,17 @@ def find_top_N_initial_g(N, dataset_x, dataset_y, predict_func, groups, M=10, or
             records.append([g_name, max(FPR, FNR), "ERR" if FPR > FNR else "FNR"])
 
     records.sort(key=lambda x: x[1])
-    vprint(records)
+    # print(records)
     max_M = records[-M:].copy()  # The keys corresponding to the groups with the max N FN/FP rates (these
     random.shuffle(max_M)
     max_N = max_M[:N]
 
     # keys are the index of a group in groups)
-    # vprint(max_N)
+    # print(max_N)
 
     result_g = dict()
     for tup in max_N:
-        #         vprint("appending group " + str(idx))
+        #         print("appending group " + str(idx))
         # result_g.append(groups[tup[0]])
         result_g[tup[0]] = (tup[1], tup[2], groups[tup[0]])  # groupname: F*R "F*R " g()
     return result_g
@@ -438,17 +435,17 @@ def simple_updater(f, g, group_name="g"):
     return False
 
 
-def evaluation(current_pdl, train_x, train_y):
-    vprint("per-group training errors of lastest version PDL:")
-    vprint(current_pdl.train_errors[
+def evaluation(current_pdl, train_x, train_y,validation_x,validation_y):
+    print("per-group training errors of lastest version PDL:")
+    print(current_pdl.train_errors[
                -1])  # this is the group error of each group on the initial PDL.
     # The ith element of f.train_errors is the group error of each group on
     # the ith version of the PDL.
-    vprint("per-group testing errors of lastest version PDL:")
-    vprint(current_pdl.test_errors[-1])  # group errors on validation set
-    # vprint(f.predicates)  # all of the group functions that have been appended so far
-    # vprint(f.leaves)  # all of the h functions appended so far
-    vprint(
+    print("per-group testing errors of lastest version PDL:")
+    print(current_pdl.test_errors[-1])  # group errors on validation set
+    # print(f.predicates)  # all of the group functions that have been appended so far
+    # print(f.leaves)  # all of the h functions appended so far
+    print(
         current_pdl.pred_names)  # the names you passed in for each of the group functions, to more easily understand which are which.
     # %%
     # 5. Looking at the group error of the ith group over each round of updates:
@@ -457,16 +454,16 @@ def evaluation(current_pdl, train_x, train_y):
     # `f.train_errors` or `f.test_errors` and look at the ith element of each
     # list as follows:
     target_group = -1  # this sets the group whose error you want to look at at each round to the initial model. If I wanted to look at the 1st group introduced, would change to a 1, e.g.
-    vprint("latest group's training errors on all preivous PDLs:")
-    vprint([e[-1] for e in current_pdl.train_errors])
-    vprint("latest group's testing errors on all preivous PDLs:")
-    vprint([e[-1] for e in current_pdl.test_errors])
+    print("latest group's training errors on all preivous PDLs:")
+    print([e[-1] for e in current_pdl.train_errors])
+    print("latest group's testing errors on all preivous PDLs:")
+    print([e[-1] for e in current_pdl.test_errors])
     g_all = lambda x: 1  # here we define a group that just is all the data, replace as you see fit.
     bountyHuntWrapper.measure_group_error(current_pdl, g_all, train_x, train_y)
 
     pred_ys = validation_x.apply(current_pdl.predict, axis=1).to_numpy()
     errors = metrics.zero_one_loss(validation_y, pred_ys)
-    vprint("latest PDL's overall testing  errors %.10f" % errors)
+    print("latest PDL's overall testing  errors %.10f" % errors)
 
 
 if __name__ == '__main__':
@@ -547,11 +544,11 @@ if __name__ == '__main__':
             ret = simple_updater(f, g, "group" + str(count))
             if ret:
                 print("Updated")
-                evaluation(f, train_x, train_y)
+                evaluation(f, train_x, train_y,validation_x,validation_y)
 
 
     visitEachList(train_x)
-    evaluation(f, train_x, train_y)
+    evaluation(f, train_x, train_y,validation_x,validation_y)
 
     f_predict_xN = lambda xN: xN.apply(f.predict, axis=1)
     retries_nr = 0
@@ -569,17 +566,17 @@ if __name__ == '__main__':
         print("%d-th iteration, finding %d-th gh pair" % (itr_count + 1, updates_count + 1))
         itr_count += 1
         init_g_err = "%s-%.4f%s" % (col, v[0], v[1])
-        vprint("init_g_err %s" % init_g_err)
+        print("init_g_err %s" % init_g_err)
         name, g, h = argmax_gh_local(f, train_x, train_y, validation_x, validation_y, v[-1], init_g_err, epsilon)
         if (name is not None):
-            vprint("find local max gh from %s" % name)
+            print("find local max gh from %s" % name)
             # local_maxs[name] = (g, h)
             if bountyHuntWrapper.run_checks(f, validation_x, validation_y, g, h.predict, train_x=train_x,
                                             train_y=train_y):
                 updates_count += 1
-                vprint("Running Update %d" % updates_count)
+                print("Running Update %d" % updates_count)
                 bountyHuntWrapper.run_updates(f, g, h.predict, train_x, train_y, validation_x, validation_y,
                                               group_name=name)
 
 
-    evaluation(f, train_x, train_y)
+    evaluation(f, train_x, train_y,validation_x,validation_y)
