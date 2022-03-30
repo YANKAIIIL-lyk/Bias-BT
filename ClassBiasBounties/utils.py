@@ -17,14 +17,6 @@ V = 1  #
 
 
 # 1,
-def vprint(*args, **kwargs):
-    if (V >= 1):
-        print(*args, **kwargs)
-
-
-def vvprint(*args, **kwargs):
-    if (V >= 2):
-        print(*args, **kwargs)
 
 
 
