@@ -1,5 +1,6 @@
 import sys
 from sklearn.tree import DecisionTreeClassifier
+
 sys.path.append('dontlook')
 from dontlook import bountyHuntData
 from dontlook import bountyHuntWrapper
@@ -13,7 +14,9 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from utils import *
 import warnings
+
 warnings.filterwarnings('ignore')
+
 
 def simple_updater(f, g, group_name="g"):
     # if you want to change how h is trained, you can edit the below line.
@@ -42,6 +45,7 @@ generate_one_dim_groups(train_x, groups_fcns)
 # f is the initial PDL
 f = bountyHuntWrapper.build_initial_pdl(initial_model, train_x, train_y, validation_x, validation_y)
 
+
 # Here, define all gs and hs that you developed in your notebook.
 def g1(x):
     # here is how to make a function g that returns 1 for all African American individuals
@@ -49,6 +53,8 @@ def g1(x):
         return 1
     else:
         return 0
+
+
 # Update f with g1
 simple_updater(f, g1, group_name="g1")
 
@@ -59,8 +65,11 @@ def g2(x):
         return 1
     else:
         return 0
+
+
 # Update f with g2
 simple_updater(f, g2, group_name="g2")
+
 
 # Visit each feature, try to update the PDL
 def visitEachList(df):
@@ -73,11 +82,15 @@ def visitEachList(df):
                     return 1
                 else:
                     return 0
+
             return g
+
         g = aggr(column)
         ret = simple_updater(f, g, "group" + str(count))
         if ret:
-            evaluation(f, train_x, train_y,validation_x,validation_y)
+            evaluation(f, train_x, train_y, validation_x, validation_y)
+
+
 visitEachList(train_x)
 
 # Implemented algorithm 6 in the given paper to find g
@@ -109,9 +122,9 @@ for col, v in result_g.items():
                                           group_name=name)
 
 # Evalutate the final PDL. The final overall testing error is around 0.1716
-evaluation(f, train_x, train_y,validation_x,validation_y)
+evaluation(f, train_x, train_y, validation_x, validation_y)
 
+import dill as pickle  # you will probably need to install dill, which you do w pip install dill in your command line
 
-import dill as pickle # you will probably need to install dill, which you do w pip install dill in your command line
 with open('final_pdl.pkl', 'wb') as pickle_file:
     pickle.dump(f, pickle_file)
